@@ -21,10 +21,16 @@
   .sub { color: var(--muted); margin: 0 0 24px; }
   .sub a { color: var(--accent); }
   form { display: flex; gap: 8px; }
-  textarea { flex: 1; resize: vertical; min-height: 52px; padding: 12px; font: inherit;
+  .field { flex: 1; position: relative; display: flex; }
+  textarea { flex: 1; resize: vertical; min-height: 52px; padding: 12px 48px 12px 12px; font: inherit;
              color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
   button { font: inherit; cursor: pointer; border-radius: 8px; }
   form button { padding: 0 20px; border: 0; background: var(--accent); color: var(--bg); font-weight: 600; }
+  form #mic { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; padding: 0;
+              display: grid; place-items: center; color: var(--muted); background: transparent; border-radius: 50%; }
+  form #mic[hidden] { display: none; }
+  form #mic:hover { color: var(--accent); }
+  form #mic[aria-pressed="true"] { color: var(--bg); background: var(--bad); }
   .examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 28px; }
   .examples button { padding: 4px 10px; font-size: .85rem; color: var(--muted);
                      background: transparent; border: 1px solid var(--line); }
@@ -62,7 +68,12 @@
   <p class="sub">Descreva a aparência de um dinossauro e veja os mais parecidos. <a href="/all">Ver todos</a></p>
 
   <form id="f">
-    <textarea id="q" aria-label="Descrição física do dinossauro" placeholder="ex.: quadrúpede enorme com placas nas costas e espinhos na cauda"></textarea>
+    <div class="field">
+      <textarea id="q" aria-label="Descrição física do dinossauro" placeholder="ex.: quadrúpede enorme com placas nas costas e espinhos na cauda"></textarea>
+      <button id="mic" type="button" aria-pressed="false" aria-label="Descrever por voz" title="Descrever por voz" hidden>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+      </button>
+    </div>
     <button id="go" type="submit">Buscar</button>
   </form>
 
@@ -152,6 +163,24 @@ async function search() {
 
 $("f").onsubmit = (e) => { e.preventDefault(); search(); };
 $("q").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); search(); } };
+
+// Speech-to-text via the browser's Web Speech API (Chrome, Edge, Safari). Hidden where unsupported.
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (Recognition) {
+  const rec = new Recognition();
+  rec.lang = "pt-BR";
+  rec.interimResults = true;
+  const mic = $("mic");
+  mic.hidden = false;
+  mic.onclick = () => (mic.getAttribute("aria-pressed") === "true" ? rec.stop() : rec.start());
+  let heard = false;
+  rec.onstart = () => { heard = false; mic.setAttribute("aria-pressed", "true"); };
+  rec.onresult = (e) => { heard = true; $("q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+  rec.onend = () => { mic.setAttribute("aria-pressed", "false"); if (heard) search(); };
+  rec.onerror = (e) => {
+    if (e.error !== "no-speech" && e.error !== "aborted") $("out").innerHTML = `<p class="err">Falha no microfone: ${esc(e.error)}</p>`;
+  };
+}
 </script>
 </body>
 </html>
