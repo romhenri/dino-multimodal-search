@@ -72,8 +72,8 @@ score_final = α · dense + β · attributes − γ · negation_penalty + popula
   (0.5 if debated). An exact match to an excluded diet, posture, or size such as
   "não é carnívoro" also costs 1.
 - **popularity_bonus**: +0.1 for Tyrannosaurus, Spinosaurus aegyptiacus, Triceratops,
-  Brachiosaurus, Stegosaurus, Ankylosaurus and Parasaurolophus (`POPULAR` in `ranker.py`). A
-  vague description most likely means one of them, so they win close calls.
+  Brachiosaurus, Stegosaurus, Ankylosaurus, Parasaurolophus and Velociraptor (`POPULAR` in
+  `ranker.py`). A vague description most likely means one of them, so they win close calls.
 
 Weights α = 1, β = 1.5, γ = 1 sit on the left edge of the plateau found by
 `python -m eval.run_eval --grid`. Every result lists matched, missing and conflicting traits.
@@ -83,7 +83,7 @@ ambiguous):
 
 | configuration | Top-1 | Top-3 | MRR |
 |---|---|---|---|
-| embeddings only | 0.770 | 0.905 | 0.847 |
+| embeddings only | 0.770 | 0.892 | 0.844 |
 | attributes only | 0.703 | 0.797 | 0.770 |
 | **hybrid** | **0.986** | **1.000** | **0.993** |
 

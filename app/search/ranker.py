@@ -30,7 +30,7 @@ ALIASES = {r"\b(t ?)?rex\b|\btiranossauro\b": "tyrannosaurus",
 
 # The best-known dinos get a small bonus: a vague query most likely means one of them.
 POPULAR = {"Tyrannosaurus", "Spinosaurus aegyptiacus", "Triceratops", "Brachiosaurus", "Stegosaurus",
-           "Ankylosaurus", "Parasaurolophus"}
+           "Ankylosaurus", "Parasaurolophus", "Velociraptor"}
 POPULARITY_BONUS = 0.1
 
 
