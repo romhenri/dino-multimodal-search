@@ -5,7 +5,9 @@ A drawing gives two rankings, nothing trained:
              every dino takes the rank of its group in data/map.json
   descrição  CLIP reads posture and the traits the popular dinos have; they become a
              Portuguese description that the hybrid search ranks
-Typed text adds a third, busca. Weighted reciprocal rank fusion merges them.
+Typed text adds a third, busca, and with a drawing the 8 popular dinos share first place
+in a fourth, popularidade: someone who drew a sauropod most likely meant Brachiosaurus, not
+Camarasaurus. Weighted reciprocal rank fusion merges them.
 
 Trait margins are centered by their mean over the ground-truth sketches, stored in
 data/sketch_trait_means.json. Regenerate it after changing the model or the prompts:
@@ -73,9 +75,11 @@ TOP_TRAITS = 3  # beat thresholding on p(trait vs neutral), which picked ~8 trai
 
 # Reciprocal rank fusion: score = sum of weight / (RRF_K + rank) over the rankings a dino is in.
 # nome must decide the group and the others only order dinos inside it, so one rank down in
-# nome has to cost more than descrição and busca can ever add: 100 * (1/67 - 1/68) > 2 * (1/61 - 1/124).
+# nome has to cost more than the rest can ever add: 200 * (1/67 - 1/68) > 2 * (1/61 - 1/124) + 0.5/61.
+# popularidade 0.5 put the group's representative first in 18 of the 18 ground-truth sketches
+# whose group was right (3 of 18 without it), and the exact species from 3 to 6 of 25.
 RRF_K = 60
-RRF_WEIGHTS = {"nome": 100.0, "descrição": 1.0, "busca": 1.0}
+RRF_WEIGHTS = {"nome": 200.0, "descrição": 1.0, "busca": 1.0, "popularidade": 0.5}
 
 
 def describe(margin: np.ndarray, posture_scores: np.ndarray, keys: list[str]) -> tuple[str, set[str]]:
@@ -200,6 +204,7 @@ def multimodal_search(ranker: Ranker, reader: SketchReader, query: str, im: Imag
         rankings["nome"] = {d: groups.index(g) + 1 for d, g in reader.group_of.items() if g}
         shown = ranker.search(description, n)
         rankings["descrição"] = {r.nome: i + 1 for i, r in enumerate(shown)}
+        rankings["popularidade"] = dict.fromkeys(POPULAR, 1)
     if query.strip():
         shown = ranker.search(query, n)  # cards explain the typed text when there is one
         rankings["busca"] = {r.nome: i + 1 for i, r in enumerate(shown)}

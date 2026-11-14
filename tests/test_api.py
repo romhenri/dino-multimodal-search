@@ -81,7 +81,9 @@ def test_multimodal_reads_the_drawing_group(client: TestClient) -> None:
     assert body["grupo"] == "Triceratops" and body["descricao_desenho"]
     group = set(json.loads(Path("data/map.json").read_text())["grupos"]["Triceratops"])
     assert {h["nome"] for h in body["resultados"]} == group  # the whole group comes first
-    assert set(body["resultados"][0]["posicoes"]) == {"nome", "descrição"}
+    top = body["resultados"][0]
+    assert top["nome"] == "Triceratops"  # the representative leads its group
+    assert set(top["posicoes"]) == {"nome", "descrição", "popularidade"}
 
 
 def test_multimodal_text_only_matches_search(client: TestClient) -> None:
