@@ -44,6 +44,8 @@
                   color: var(--muted); background: transparent; border: 1px solid var(--line); }
   .tools button:hover { color: var(--ink); border-color: var(--muted); }
   .tools button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .tools #undo { margin-left: 8px; }
+  .tools button:disabled { opacity: .4; cursor: default; }
   .tools #save-sketch { margin-left: auto; }
   .tools #save-sketch.ok { color: var(--bg); background: var(--accent); border-color: var(--accent); }
   /* White like the paleoart tiles, in dark mode too, so drawings export on white. */
@@ -101,6 +103,12 @@
     </button>
     <button type="button" data-tool="eraser" aria-pressed="false" aria-label="Borracha" title="Borracha">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+    </button>
+    <button type="button" id="undo" aria-label="Voltar traço" title="Voltar traço (Ctrl/⌘+Z)" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+    </button>
+    <button type="button" id="redo" aria-label="Refazer traço" title="Refazer traço (Ctrl/⌘+Shift+Z)" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/></svg>
     </button>
     <button type="button" id="save-sketch" aria-label="Salvar desenho para anotação" title="Salvar desenho para anotação">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
@@ -251,10 +259,42 @@ function stroke(e) {
   last = p;
   if (tool !== "eraser") drawn = true;
 }
-board.onpointerdown = (e) => { board.setPointerCapture(e.pointerId); last = point(e); stroke(e); };
+board.onpointerdown = (e) => { board.setPointerCapture(e.pointerId); remember(); last = point(e); stroke(e); };
 board.onpointermove = (e) => { if (last) stroke(e); };
 board.onpointerup = board.onpointercancel = () => { last = undefined; };
-$("clear").onclick = clearBoard;
+$("clear").onclick = () => { remember(); clearBoard(); };
+const afterRestore = () => {};
+// Undo/redo: the board is snapshotted before each stroke and each clear.
+// ponytail: whole-bitmap snapshots capped at HISTORY; record strokes instead if memory matters.
+const HISTORY = 20;
+let undoStack = [], redoStack = [];
+const snap = () => ({ img: ctx.getImageData(0, 0, board.width, board.height), drawn });
+const syncHistory = () => { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; };
+function remember() {
+  undoStack.push(snap());
+  if (undoStack.length > HISTORY) undoStack.shift();
+  redoStack = [];
+  syncHistory();
+}
+function step(from, to) {
+  if (!from.length) return;
+  to.push(snap());
+  const s = from.pop();
+  ctx.putImageData(s.img, 0, 0);
+  drawn = s.drawn;
+  afterRestore();
+  syncHistory();
+}
+$("undo").onclick = () => step(undoStack, redoStack);
+$("redo").onclick = () => step(redoStack, undoStack);
+// Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; typing in a field keeps its own undo.
+document.addEventListener("keydown", (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.target.closest?.("textarea, input")) return;
+  const k = e.key.toLowerCase();
+  if (k === "z" && !e.shiftKey) { e.preventDefault(); $("undo").click(); }
+  else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); $("redo").click(); }
+});
+
 // Sends the drawing to the server's annotation pile (data/desenhos.jsonl); the icon turns into a check.
 // The same board is saved once: clicking again before drawing more only shows the check again.
 const saveIcon = $("save-sketch").innerHTML;
