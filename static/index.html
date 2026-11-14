@@ -256,24 +256,33 @@ board.onpointermove = (e) => { if (last) stroke(e); };
 board.onpointerup = board.onpointercancel = () => { last = undefined; };
 $("clear").onclick = clearBoard;
 // Sends the drawing to the server's annotation pile (data/desenhos.jsonl); the icon turns into a check.
+// The same board is saved once: clicking again before drawing more only shows the check again.
 const saveIcon = $("save-sketch").innerHTML;
+let lastSaved;
+function showSaved(b) {
+  b.classList.add("ok");
+  b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
+  b.title = "Desenho salvo";
+  clearTimeout(b.resetTimer);
+  b.resetTimer = setTimeout(() => { b.classList.remove("ok"); b.innerHTML = saveIcon; b.title = b.getAttribute("aria-label"); }, 1500);
+}
 $("save-sketch").onclick = async () => {
   const b = $("save-sketch");
   if (!drawn || b.disabled) return;
+  const desenho = board.toDataURL("image/png");
+  if (desenho === lastSaved) return showSaved(b);
   b.disabled = true;
   try {
     const r = await fetch("/sketches", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ desenho: board.toDataURL("image/png"), texto: $("q").value }),
+      body: JSON.stringify({ desenho, texto: $("q").value }),
     });
     if (!r.ok) {
       const { detail } = await r.json().catch(() => ({}));
       throw new Error(typeof detail === "string" ? detail : `erro ${r.status}`);
     }
-    b.classList.add("ok");
-    b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
-    b.title = "Desenho salvo";
-    setTimeout(() => { b.classList.remove("ok"); b.innerHTML = saveIcon; b.title = b.getAttribute("aria-label"); }, 1500);
+    lastSaved = desenho;
+    showSaved(b);
   } catch (e) {
     $("out").innerHTML = `<p class="err">Falha ao salvar o desenho: ${esc(e.message)}</p>`;
   } finally {

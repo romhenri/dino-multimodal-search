@@ -127,3 +127,10 @@ def all_dinos() -> FileResponse:
 def make_gt() -> FileResponse:
     """Draw each dino from its illustration to build a sketch ground truth."""
     return FileResponse(STATIC / "make-gt.html")
+
+
+# ponytail: temporary, to label data/desenhos.jsonl into eval/gt; drop it with static/annotate.html once annotated.
+@app.get("/annotate", include_in_schema=False)
+def annotate() -> FileResponse:
+    """Label each saved board drawing with its dino and download it as a ground truth."""
+    return FileResponse(STATIC / "annotate.html")

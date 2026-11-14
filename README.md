@@ -14,11 +14,11 @@ You can also draw the dinosaur on the board. Zero-shot CLIP reads the sketch, pi
 of 8 popular groups and writes a Portuguese description, which then joins the text search
 through reciprocal rank fusion.
 
-![Sketch of a long-necked sauropod read as the Brachiosaurus group](docs/screenshots/bra.png)
-
-![Sketch of a crested hadrosaur read as the Parasaurolophus group](docs/screenshots/paro.jpeg)
-
-![Sketch of a big-headed theropod with tiny arms read as the Tyrannosaurus group](docs/screenshots/rex.jpeg)
+<p>
+  <img src="docs/screenshots/bra.png" width="32%" alt="Sketch of a long-necked sauropod read as the Brachiosaurus group">
+  <img src="docs/screenshots/paro.jpeg" width="32%" alt="Sketch of a crested hadrosaur read as the Parasaurolophus group">
+  <img src="docs/screenshots/rex.jpeg" width="32%" alt="Sketch of a big-headed theropod with tiny arms read as the Tyrannosaurus group">
+</p>
 
 ## Installation
 

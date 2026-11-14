@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dino Search anotação</title>
+<style>
+  :root {
+    --bg: #f7f6f2; --card: #ffffff; --ink: #1d1c1a; --muted: #6b6860;
+    --line: #e3e0d8; --accent: #b45309; --bad: #b0213a; --chip: #fbefe3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151614; --card: #1e201d; --ink: #ecebe6; --muted: #9a978f;
+            --line: #30332e; --accent: #f59e57; --bad: #f0707f; --chip: #33261b; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 18px;
+           color: var(--muted); background: transparent; border: 1px solid var(--line); }
+  button:hover { color: var(--ink); border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .primary { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .primary:hover { color: var(--bg); border-color: var(--accent); }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
+  .head h2 { margin: 0; font-size: 1.15rem; }
+  .muted { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .label { color: var(--muted); font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+           height: 24px; margin-bottom: 8px; }
+  /* Both tiles white, in dark mode too, like the drawings themselves. */
+  .tile { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff;
+          border: 1px solid var(--line); border-radius: 8px; }
+  .tile.empty { visibility: hidden; }
+  .texto { color: var(--muted); font-size: .88rem; margin: 8px 0 0; }
+  .pick { margin-top: 16px; }
+  .pick input { width: 100%; font: inherit; padding: 10px 12px; color: var(--ink); background: var(--card);
+                border: 1px solid var(--line); border-radius: 8px; }
+  .pick input[aria-invalid="true"] { border-color: var(--bad); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chips button { padding: 4px 10px; font-size: .85rem; border-radius: 999px; }
+  .chips button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .actions .spacer { margin-right: auto; }
+  .err { color: var(--bad); }
+  @media (max-width: 640px) { .stage { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Anotar desenhos salvos</h1>
+  <p class="sub">Temporário. Carregue <code>data/desenhos.jsonl</code>, diga qual dinossauro é cada desenho e baixe o resultado como ground truth para o eval.</p>
+  <div class="actions" id="start">
+    <button type="button" id="load" class="primary">Carregar desenhos.jsonl</button>
+    <input type="file" id="file" accept=".jsonl,.json,application/json" hidden>
+  </div>
+
+  <section id="annotate" hidden>
+    <div class="head"><h2 id="title"></h2><span class="muted" id="progress"></span></div>
+    <div class="stage">
+      <div>
+        <div class="label">Desenho</div>
+        <img id="sketch" class="tile" alt="Desenho salvo">
+        <p class="texto" id="texto"></p>
+      </div>
+      <div>
+        <div class="label">Referência</div>
+        <img id="ref" class="tile empty" alt="">
+      </div>
+    </div>
+    <div class="pick">
+      <input id="name" list="names" autocomplete="off" placeholder="Qual dinossauro é? Digite e escolha da lista" aria-label="Dinossauro">
+      <datalist id="names"></datalist>
+      <div class="chips" id="popular" aria-label="Populares"></div>
+    </div>
+    <div class="actions">
+      <button type="button" id="finish" class="spacer">Baixar Ground Truth 2</button>
+      <button type="button" id="prev">Anterior</button>
+      <button type="button" id="discard">Descartar</button>
+      <button type="button" id="next" class="primary">Próximo</button>
+    </div>
+  </section>
+
+  <p id="out" aria-live="polite"></p>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const POPULAR = ["Tyrannosaurus", "Spinosaurus aegyptiacus", "Triceratops", "Brachiosaurus", "Stegosaurus",
+                 "Ankylosaurus", "Parasaurolophus", "Velociraptor"];
+// label per drawing: a dino name, null when discarded, undefined while not seen.
+let names = [], items = [], labels = [], index = 0, saved = true;
+
+const canonical = (v) => names.find((n) => n.toLowerCase() === v.trim().toLowerCase());
+
+function show() {
+  const it = items[index];
+  $("title").textContent = `Desenho ${index + 1}`;
+  const done = labels.filter((l) => l).length, gone = labels.filter((l) => l === null).length;
+  $("progress").textContent = `${index + 1} / ${items.length} · ${done} anotados · ${gone} descartados`;
+  $("sketch").src = it.desenho;
+  $("texto").textContent = it.texto ? `Texto na busca: "${it.texto}"` : "";
+  $("name").value = labels[index] || "";
+  $("name").removeAttribute("aria-invalid");
+  $("prev").disabled = index === 0;
+  preview();
+  $("name").focus();
+}
+
+function preview() {
+  const n = canonical($("name").value);
+  $("ref").classList.toggle("empty", !n);
+  if (n) { $("ref").src = `/img/${encodeURIComponent(n)}.png`; $("ref").alt = `Referência: ${n}`; }
+  for (const b of $("popular").children) b.setAttribute("aria-pressed", b.textContent === n);
+}
+
+// Keeps the typed name if it is one of the 64; refuses to move on with an unknown name.
+function commit() {
+  const v = $("name").value.trim();
+  if (!v) return true;
+  const n = canonical(v);
+  if (!n) { $("name").setAttribute("aria-invalid", "true"); $("out").className = "err"; $("out").textContent = `"${v}" não é um dos 64 dinossauros.`; return false; }
+  if (labels[index] !== n) { labels[index] = n; saved = false; }
+  $("out").textContent = "";
+  return true;
+}
+
+function go(i) {
+  if (i >= items.length) { $("out").className = ""; $("out").textContent = "Fim da lista. Baixe o Ground Truth 2 ou volte para revisar."; return; }
+  index = Math.max(0, i);
+  show();
+}
+
+function download() {
+  if (!commit()) return;
+  const now = new Date();
+  const itens = items.flatMap((it, i) => labels[i] ? [{
+    nome: labels[i], desenho: it.desenho, desenhado_em: it.salvo_em, duracao_ms: null, texto: it.texto || "",
+  }] : []);
+  const gt = { versao: 1, origem: "data/desenhos.jsonl", criado_em: items[0].salvo_em, finalizado_em: now.toISOString(),
+               tamanho_px: null, total: itens.length, itens };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(gt, null, 2)], { type: "application/json" }));
+  a.download = "gt-desenhos-#2.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  saved = true;
+  $("out").className = "";
+  $("out").textContent = `${itens.length} desenhos anotados baixados; ${items.length - itens.length} ficaram de fora (descartados ou sem nome).`;
+}
+
+$("load").onclick = () => $("file").click();
+$("file").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    if (!names.length) {
+      const r = await fetch("/dinos");
+      if (!r.ok) throw new Error(`erro ${r.status} ao buscar /dinos`);
+      names = (await r.json()).map((d) => d.nome);
+      $("names").replaceChildren(...names.map((n) => new Option(n)));
+      $("popular").replaceChildren(...POPULAR.map((n) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = n;
+        b.onclick = () => { $("name").value = n; preview(); };
+        return b;
+      }));
+    }
+    items = (await file.text()).split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+    if (!items.length || !items.every((it) => it.desenho)) throw new Error("nenhuma linha com \"desenho\"");
+    // An already filled "dinossauro" comes in as the starting label.
+    labels = items.map((it) => canonical(it.dinossauro || "") || undefined);
+    index = 0; saved = true;
+    $("start").hidden = true;
+    $("annotate").hidden = false;
+    $("out").textContent = "";
+    show();
+  } catch (err) {
+    $("out").className = "err";
+    $("out").textContent = `Não foi possível carregar ${file.name}: ${err.message}`;
+  }
+};
+$("name").oninput = preview;
+$("name").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("next").click(); } };
+$("next").onclick = () => { if (commit()) go(index + 1); };
+$("prev").onclick = () => { if (commit()) go(index - 1); };
+$("discard").onclick = () => { labels[index] = null; saved = false; go(index + 1); };
+$("finish").onclick = download;
+window.onbeforeunload = (e) => { if (!saved) e.preventDefault(); };
+</script>
+</body>
+</html>
