@@ -43,6 +43,10 @@
   .actions .primary:hover { color: var(--bg); border-color: var(--accent); }
   .actions button:disabled { opacity: .45; cursor: not-allowed; }
   .err { color: var(--bad); }
+  .load { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -8px 0 24px; }
+  .load button { padding: 8px 14px; color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+  .load button:hover { color: var(--bg); background: var(--accent); }
+  .load span { color: var(--muted); font-size: .88rem; }
   @media (max-width: 640px) { .stage { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -50,6 +54,11 @@
 <main>
   <h1>Ground truth de desenhos</h1>
   <p class="sub">Desenhe o dinossauro da foto e passe para o próximo. No fim, baixe o JSON para usar na avaliação. <a href="/">Voltar à busca</a></p>
+  <div class="load">
+    <button type="button" id="load">Completar base existente</button>
+    <span>Carregue um JSON baixado aqui para desenhar só os dinossauros que faltam.</span>
+    <input type="file" id="gt-file" accept=".json,application/json" hidden>
+  </div>
 
   <section id="draw" hidden>
     <div class="head"><h2 id="name"></h2><span class="progress" id="progress"></span></div>
@@ -138,7 +147,7 @@ for (const b of toolButtons) {
 }
 
 // Session: every dino once, in random order.
-let queue = [], index = 0, items = [], startedAt, shownAt, saved = true;
+let queue = [], index = 0, items = [], loaded = 0, startedAt, shownAt, saved = true;
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -152,18 +161,53 @@ function show() {
   if (index >= queue.length) return finish();
   const nome = queue[index];
   $("name").textContent = nome;
-  $("progress").textContent = `${index + 1} / ${queue.length} · ${items.length} desenhados`;
+  $("progress").textContent = `${loaded + index + 1} / ${loaded + queue.length} · ${items.length} desenhados`;
   $("ref").src = `/img/${encodeURIComponent(nome)}.png`;
   $("ref").alt = `Foto de referência: ${nome}`;
   clearBoard();
   shownAt = Date.now();
 }
 
+// Canvas only exports 8-bit RGBA PNGs; a black-on-white sketch fits in a 1-bit grayscale
+// PNG ~15x smaller. Pixels with luma >= 128 are white, the rest black.
+const CRC = Array.from({ length: 256 }, (_, n) => {
+  for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
+  return n >>> 0;
+});
+async function png1bit({ width: w, height: h, data }) {
+  const stride = Math.ceil(w / 8) + 1;  // + filter byte (0) per row
+  const raw = new Uint8Array(stride * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 >= 128) raw[y * stride + 1 + (x >> 3)] |= 0x80 >> (x & 7);
+  }
+  const zlib = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate"))).arrayBuffer());
+  const chunk = (type, body) => {
+    const out = new Uint8Array(12 + body.length), v = new DataView(out.buffer);
+    v.setUint32(0, body.length);
+    out.set([...type].map((c) => c.charCodeAt(0)), 4);
+    out.set(body, 8);
+    let c = ~0;
+    for (const b of out.subarray(4, 8 + body.length)) c = CRC[(c ^ b) & 255] ^ (c >>> 8);
+    v.setUint32(8 + body.length, ~c >>> 0);
+    return out;
+  };
+  const ihdr = new Uint8Array(13), v = new DataView(ihdr.buffer);
+  v.setUint32(0, w); v.setUint32(4, h); ihdr[8] = 1;  // bit depth 1, color type 0 (grayscale)
+  const png = new Uint8Array(await new Blob([
+    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", zlib), chunk("IEND", new Uint8Array()),
+  ]).arrayBuffer());
+  let s = "";
+  for (const b of png) s += String.fromCharCode(b);
+  return "data:image/png;base64," + btoa(s);
+}
+
 function advance(save) {
   if (save) {
     items.push({
       nome: queue[index],
-      desenho: board.toDataURL("image/png"),
+      // A promise, read synchronously before show() clears the board; awaited in download().
+      desenho: png1bit(ctx.getImageData(0, 0, board.width, board.height)),
       desenhado_em: new Date().toISOString(),
       duracao_ms: Date.now() - shownAt,
     });
@@ -176,11 +220,13 @@ function advance(save) {
 function finish() {
   $("draw").hidden = true;
   $("done").hidden = false;
-  $("summary").textContent = `${items.length} desenho(s) de ${queue.length} dinossauros.`;
+  $("summary").textContent = `${items.length} desenho(s) de ${loaded + queue.length} dinossauros` +
+    (loaded ? `, ${loaded} deles da base carregada.` : ".");
   $("download").disabled = !items.length;
 }
 
-function download() {
+async function download() {
+  const itens = await Promise.all(items.map(async (it) => ({ ...it, desenho: await it.desenho })));
   const finishedAt = new Date();
   const gt = {
     versao: 1,
@@ -188,7 +234,7 @@ function download() {
     finalizado_em: finishedAt.toISOString(),
     tamanho_px: [board.width, board.height],
     total: items.length,
-    itens: items,
+    itens,
   };
   const stamp = finishedAt.toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-");
   const a = document.createElement("a");
@@ -199,17 +245,26 @@ function download() {
   saved = true;
 }
 
-async function start() {
+// `base` is a previously downloaded ground truth: its drawings are kept and only the
+// dinos it lacks are queued, so the next download holds both.
+async function start(base) {
+  let names;
   try {
     const r = await fetch("/dinos");
     if (!r.ok) throw new Error(`erro ${r.status}`);
-    queue = shuffle((await r.json()).map((d) => d.nome));
+    names = (await r.json()).map((d) => d.nome);
   } catch (e) {
     $("out").className = "err";
     $("out").textContent = `Falha ao carregar os dinossauros: ${e.message}`;
     return;
   }
-  index = 0; items = []; saved = true; startedAt = new Date();
+  const kept = base ? base.itens.filter((it) => names.includes(it.nome)) : [];
+  const drawnNames = new Set(kept.map((it) => it.nome));
+  queue = shuffle(names.filter((n) => !drawnNames.has(n)));
+  index = 0; items = kept; loaded = kept.length; saved = true;
+  startedAt = base?.criado_em ? new Date(base.criado_em) : new Date();
+  $("out").className = "";
+  $("out").textContent = base ? `Base carregada: ${loaded} desenhos mantidos, faltam ${queue.length}.` : "";
   $("done").hidden = true;
   $("draw").hidden = false;
   show();
@@ -220,6 +275,20 @@ $("skip").onclick = () => advance(false);
 $("finish").onclick = () => { if (drawn) advance(true); finish(); };
 $("download").onclick = download;
 $("restart").onclick = () => { if (saved || confirm("Descartar os desenhos não baixados?")) start(); };
+$("load").onclick = () => $("gt-file").click();
+$("gt-file").onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || !(saved || confirm("Descartar os desenhos não baixados?"))) return;
+  try {
+    const base = JSON.parse(await file.text());
+    if (!Array.isArray(base.itens)) throw new Error('o arquivo não tem a lista "itens"');
+    start(base);
+  } catch (err) {
+    $("out").className = "err";
+    $("out").textContent = `Não foi possível carregar ${file.name}: ${err.message}`;
+  }
+};
 // Drawings live only in memory until downloaded.
 window.onbeforeunload = (e) => { if (!saved) e.preventDefault(); };
 
