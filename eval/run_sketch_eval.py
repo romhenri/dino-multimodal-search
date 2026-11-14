@@ -20,105 +20,18 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
-import io
 import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 from sentence_transformers import SentenceTransformer
 
-from app.search.dinos import TRAITS
-from app.search.extractor import extract_rules
 from app.search.ranker import POPULAR, build_ranker, load_config
+from app.search.sketch import NEUTRAL, POSTURES, SEARCH_TRAITS, decode, describe, frame, load_groups
 from eval.run_eval import fmt, metrics, rank_of_first_hit
 
 ROOT = Path(__file__).resolve().parents[1]
 DINOS = ROOT / "data" / "dinos.json"
-MAP = ROOT / "data" / "map.json"
-
-# Every trait the semantic search scores, and nothing else: CLIP prompt (English works
-# best) -> Portuguese phrase the search's extractor reads back as that same trait.
-SEARCH_TRAITS = {
-    "chifres": ("horns on its face", "chifres"),
-    "escudo": ("a big bony frill behind its head", "escudo"),
-    "crista": ("a crest on its head", "crista"),
-    "placas": ("tall plates along its back", "placas nas costas"),
-    "placa_nasal": ("a thick bony lump on its nose", "placa no nariz"),
-    "espinhos": ("spikes", "espinhos"),
-    "espinhos_cauda": ("spikes on its tail", "espinhos na cauda"),
-    "vela_dorsal": ("a sail on its back", "vela nas costas"),
-    "armadura": ("armored body", "armadura"),
-    "clava_cauda": ("a club at the end of its tail", "clava na cauda"),
-    "penas": ("feathers", "penas"),
-    "asas": ("wings", "asas"),
-    "pescoco_longo": ("a very long neck", "pescoço longo"),
-    "cauda_chicote": ("a long whip-like tail", "cauda chicote"),
-    "patas_dianteiras_longas": ("front legs longer than its back legs", "patas dianteiras longas"),
-    "garras_grandes": ("big claws", "garras grandes"),
-    "espinho_polegar": ("a spike on its thumb", "espinho no polegar"),
-    "cabeca_domo": ("a thick domed head", "cabeça em domo"),
-    "bico": ("a beak", "bico"),
-    "bico_de_pato": ("a duck bill", "bico de pato"),
-    "bracos_curtos": ("tiny short arms", "braços curtos"),
-    "cabeca_grande": ("a huge head", "cabeça grande"),
-    "focinho_longo": ("a long crocodile-like snout", "focinho longo"),
-    "pernas_longas": ("long slender legs", "pernas longas"),
-    "semiaquatico": ("a body built for swimming", "semiaquático"),
-    "ceratopsiano": ("a parrot beak, a frill and horns like a ceratopsian", "ceratopsiano"),
-}
-assert SEARCH_TRAITS.keys() == set(TRAITS), "SEARCH_TRAITS must list exactly the search's TRAITS"
-assert all(extract_rules(pt).tracos == {t} for t, (_, pt) in SEARCH_TRAITS.items()), "phrase not read back as its trait"
-# Postures the search scores; "facultativo" (two or four legs) can't be read off one pose.
-POSTURES = {"bípede": "a dinosaur walking on two legs", "quadrúpede": "a dinosaur walking on four legs"}
-NEUTRAL = "a drawing of a dinosaur"
-TOP_TRAITS = 3  # beat thresholding on p(trait vs neutral), which picked ~8 traits per sketch
-
-
-def describe(margin: np.ndarray, posture_scores: np.ndarray, keys: list[str]) -> tuple[str, set[str]]:
-    """Portuguese query and trait set for one sketch, from its centered margins over `keys`."""
-    picked = [keys[i] for i in np.argsort(-margin)[:TOP_TRAITS]]
-    posture = list(POSTURES)[int(np.argmax(posture_scores))]
-    phrases = [SEARCH_TRAITS[t][1] for t in picked]
-    query = posture + (" com " + ", ".join(phrases[:-1]) + (" e " if len(phrases) > 1 else "") + phrases[-1] if phrases else "")
-    return query, set(picked)
-
-
-def decode(data_url: str) -> Image.Image:
-    """PNG data URL from the make-gt canvas to an RGB image."""
-    return Image.open(io.BytesIO(base64.b64decode(data_url.split(",", 1)[1]))).convert("RGB")
-
-
-def frame(im: Image.Image, margin: float = 0.06) -> Image.Image:
-    """Crop to the non-white content and pad it to a white square.
-
-    CLIP resizes the short side to 224 and center-crops, so a 4:3 sketch loses its
-    sides (head and tail) and a wide illustration loses almost half its width.
-    Cropping first also makes a small doodle fill the frame, keeping thin strokes visible.
-    """
-    ink = im.convert("L").point(lambda p: 255 if p < 245 else 0).getbbox()
-    if ink:
-        im = im.crop(ink)
-    w, h = im.size
-    side = int(max(w, h) * (1 + 2 * margin))
-    out = Image.new("RGB", (side, side), "white")
-    out.paste(im, ((side - w) // 2, (side - h) // 2))
-    return out
-
-
-def load_groups(dataset: list[dict]) -> dict[str, str | None]:
-    """data/map.json as dino -> popular group (None for "sem_grupo"), checking every dino
-    sits in exactly one group or in "sem_grupo"."""
-    m = json.loads(MAP.read_text())
-    groups, ungrouped = m["grupos"], m["sem_grupo"]
-    assert groups.keys() == POPULAR, "map.json groups must be exactly the POPULAR dinos"
-    member_of: dict[str, str | None] = {d: g for g, members in groups.items() for d in members}
-    assert all(member_of[g] == g for g in groups), "each popular dino must lead its own group"
-    member_of |= dict.fromkeys(ungrouped)
-    assert sum(map(len, groups.values())) + len(ungrouped) == len(member_of), "a dino is listed twice"
-    assert member_of.keys() == {d["nome"] for d in dataset}, "map.json must cover exactly data/dinos.json"
-    return member_of
 
 
 def minmax(x: np.ndarray) -> np.ndarray:
@@ -139,7 +52,7 @@ def main() -> None:
     items = [it for f in args.files for it in json.loads(f.read_text())["itens"]]
     dataset = json.loads(DINOS.read_text())
     names = [d["nome"] for d in dataset]
-    group_of = load_groups(dataset)
+    group_of = load_groups(names)
     popular = sorted(POPULAR)
     traits = {d["nome"]: {t["traco"] for t in d["tracos"]} for d in dataset}
     # Only traits some popular dino has: the ones that can tell the 8 groups apart.

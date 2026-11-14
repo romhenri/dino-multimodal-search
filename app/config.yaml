@@ -1,5 +1,6 @@
 # Search configuration. Weight rationale is documented in README.md.
 model: intfloat/multilingual-e5-base
+sketch_model: clip-ViT-L-14   # zero-shot CLIP that reads drawings (app/search/sketch.py)
 cache_dir: .cache
 aggregation: top2_mean    # top2_mean | max (per-dino score over its passages)
 extractor: rules          # rules (an LLM extractor plugs into get_extractor)
