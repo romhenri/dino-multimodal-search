@@ -53,6 +53,7 @@ def test_dinos_and_index(client: TestClient) -> None:
     assert len(client.get("/dinos").json()) == 64
     assert client.get("/").status_code == 200
     assert client.get("/all").status_code == 200
+    assert client.get("/make-gt").status_code == 200
 
 
 def test_every_dino_has_an_illustration_with_credits(client: TestClient) -> None:

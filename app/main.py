@@ -61,3 +61,9 @@ def index() -> FileResponse:
 def all_dinos() -> FileResponse:
     """Grid with every dino in the dataset."""
     return FileResponse(STATIC / "all.html")
+
+
+@app.get("/make-gt", include_in_schema=False)
+def make_gt() -> FileResponse:
+    """Draw each dino from its illustration to build a sketch ground truth."""
+    return FileResponse(STATIC / "make-gt.html")
