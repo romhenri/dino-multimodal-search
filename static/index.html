@@ -22,7 +22,7 @@
          border-radius: 999px; color: var(--accent); background: var(--chip); }
   .sub { color: var(--muted); margin: 0 0 24px; }
   .sub a { color: var(--accent); }
-  form { display: flex; gap: 8px; }
+  form { display: flex; gap: 8px; margin-bottom: 28px; }
   .field { flex: 1; position: relative; display: flex; }
   textarea { flex: 1; resize: vertical; min-height: 52px; padding: 12px 48px 12px 12px; font: inherit;
              color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
@@ -33,10 +33,15 @@
   form #mic[hidden] { display: none; }
   form #mic:hover { color: var(--accent); }
   form #mic[aria-pressed="true"] { color: var(--bg); background: var(--bad); }
-  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 28px; }
-  .examples button { padding: 4px 10px; font-size: .85rem; color: var(--muted);
-                     background: transparent; border: 1px solid var(--line); }
-  .examples button:hover { color: var(--ink); border-color: var(--muted); }
+  .tools { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tools button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
+                  color: var(--muted); background: transparent; border: 1px solid var(--line); }
+  .tools button:hover { color: var(--ink); border-color: var(--muted); }
+  .tools button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .tools #clear { margin-left: auto; }
+  /* White like the paleoart tiles, in dark mode too, so drawings export on white. */
+  #board { display: block; width: 100%; aspect-ratio: 2 / 1; margin-bottom: 12px; background: #fff;
+           border: 1px solid var(--line); border-radius: 8px; touch-action: none; cursor: crosshair; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
           padding: 16px 18px; margin-bottom: 12px;
           display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 18px; align-items: start; }
@@ -69,6 +74,22 @@
   <h1>Dino Search <span class="tag">multimodal</span></h1>
   <p class="sub">Descreva a aparência de um dinossauro <strong>digitando ou falando</strong> e veja os mais parecidos, com <strong>texto e ilustração</strong>. <a href="/all">Ver todos</a></p>
 
+  <div class="tools" role="toolbar" aria-label="Ferramentas de desenho">
+    <button type="button" data-tool="pen" aria-pressed="true" aria-label="Caneta" title="Caneta">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"/><path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"/><path d="m2.3 2.3 7.286 7.286"/><circle cx="11" cy="11" r="2"/></svg>
+    </button>
+    <button type="button" data-tool="pencil" aria-pressed="false" aria-label="Lápis" title="Lápis">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+    </button>
+    <button type="button" data-tool="eraser" aria-pressed="false" aria-label="Borracha" title="Borracha">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+    </button>
+    <button type="button" id="clear" aria-label="Limpar quadro" title="Limpar quadro">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    </button>
+  </div>
+  <canvas id="board" aria-label="Quadro para desenhar o dinossauro"></canvas>
+
   <form id="f">
     <div class="field">
       <textarea id="q" aria-label="Descrição física do dinossauro" placeholder="Digite ou fale, ex.: quadrúpede enorme com placas nas costas e espinhos na cauda"></textarea>
@@ -79,31 +100,15 @@
     <button id="go" type="submit">Buscar</button>
   </form>
 
-  <div class="examples" id="ex"></div>
   <div id="out" aria-live="polite"></div>
 </main>
 
 <script>
-const EXAMPLES = [
-  "quadrúpede enorme com placas nas costas e espinhos na cauda",
-  "parece um pato grande",
-  "carnívoro grande sem penas e sem vela",
-  "três chifres e um escudo no pescoço",
-  "tanque de guerra com martelo no rabo",
-  "pequeno, com penas e uma garra curva no pé",
-];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const label = (t) => t.replaceAll("_", " ");
 let credits = {};
 fetch("/img/credits.json").then((r) => r.json()).then((c) => { credits = c; }).catch(() => {});
-
-for (const e of EXAMPLES) {
-  const b = document.createElement("button");
-  b.type = "button"; b.textContent = e;
-  b.onclick = () => { $("q").value = e; search(); };
-  $("ex").append(b);
-}
 
 function card(h) {
   const chips = [
@@ -165,6 +170,48 @@ async function search() {
 
 $("f").onsubmit = (e) => { e.preventDefault(); search(); };
 $("q").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); search(); } };
+
+// Whiteboard. Drawing isn't searched yet; a sketch model will read board.toDataURL() later.
+const board = $("board");
+const ctx = board.getContext("2d");
+const TOOLS = {
+  pen: { color: "#1d1c1a", width: 4, alpha: 1 },
+  pencil: { color: "#55524c", width: 1.5, alpha: 0.8 },
+  eraser: { color: "#fff", width: 24, alpha: 1 },
+};
+let tool = "pen";
+let last;
+const dpr = window.devicePixelRatio || 1;
+board.width = board.clientWidth * dpr;
+board.height = board.clientHeight * dpr;
+const clearBoard = () => { ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, board.width, board.height); };
+clearBoard();
+// The bitmap is sized once; CSS rescales it on resize, so map pointer coords through the current scale.
+const point = (e) => [e.offsetX * board.width / board.clientWidth, e.offsetY * board.height / board.clientHeight];
+
+function stroke(e) {
+  const t = TOOLS[tool], p = point(e);
+  ctx.globalAlpha = t.alpha;
+  ctx.strokeStyle = t.color;
+  ctx.lineWidth = t.width * board.width / board.clientWidth;
+  ctx.lineCap = ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(...last);
+  ctx.lineTo(...p);
+  ctx.stroke();
+  last = p;
+}
+board.onpointerdown = (e) => { board.setPointerCapture(e.pointerId); last = point(e); stroke(e); };
+board.onpointermove = (e) => { if (last) stroke(e); };
+board.onpointerup = board.onpointercancel = () => { last = undefined; };
+$("clear").onclick = clearBoard;
+const toolButtons = document.querySelectorAll("[data-tool]");
+for (const b of toolButtons) {
+  b.onclick = () => {
+    tool = b.dataset.tool;
+    for (const o of toolButtons) o.setAttribute("aria-pressed", o === b);
+  };
+}
 
 // Speech-to-text via the browser's Web Speech API (Chrome, Edge, Safari). Hidden where unsupported.
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
