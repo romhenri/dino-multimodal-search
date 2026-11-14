@@ -1,18 +1,24 @@
-# Dino Search by Similarity
-> Late-fusion semantic search combining dense E5 embeddings with rule-based attribute extraction to identify dinosaurs from Portuguese descriptions.
+# Dino Search: multimodal search with RRF
+> Multimodal dinosaur search: draw a sketch, type or speak a Portuguese description, and reciprocal rank fusion (RRF) merges zero-shot CLIP sketch reading with a hybrid E5 + rule-based text search.
 
-Type "quadrúpede enorme com placas nas costas e espinhos na cauda" ("huge quadruped with
-plates on its back and spikes on its tail") and get the most similar of 64 dinosaurs, each
-with a score and a per-trait explanation.
+Draw a dinosaur, describe it, or both. Type or say "quadrúpede enorme com placas nas costas e
+espinhos na cauda" ("huge quadruped with plates on its back and spikes on its tail") and get the
+most similar of 64 dinosaurs, each with a score and a per-trait explanation.
 
 Embeddings alone get negations and sizes wrong: "sem penas" ("without feathers") lands
 right next to the feathered dinosaurs. So the search fuses multilingual E5 retrieval with a
 rule-based extractor that reads traits, negations, sizes, names and nicknames ("t rex"),
 and the hybrid beats either half on its own (MRR 0.982 vs 0.825 and 0.792).
 
-![Search results for a stegosaur description](docs/screenshots/search.jpg)
+You can also draw the dinosaur on the board. Zero-shot CLIP reads the sketch, picks the closest
+of 8 popular groups and writes a Portuguese description, which then joins the text search
+through reciprocal rank fusion.
 
-![Negated query: large carnivore without feathers and without a sail](docs/screenshots/negation.jpg)
+![Sketch of a long-necked sauropod read as the Brachiosaurus group](docs/screenshots/bra.png)
+
+![Sketch of a crested hadrosaur read as the Parasaurolophus group](docs/screenshots/paro.jpeg)
+
+![Sketch of a big-headed theropod with tiny arms read as the Tyrannosaurus group](docs/screenshots/rex.jpeg)
 
 ## Installation
 
@@ -22,7 +28,7 @@ pip install -r requirements.txt
 uvicorn app.main:app            # http://localhost:8000
 ```
 
-The first run downloads the model (~1.1 GB) and caches the dataset embeddings in `.cache/`,
+The first run downloads the models (~2.8 GB: E5 for text, CLIP ViT-L/14 for sketches) and caches the dataset embeddings in `.cache/`,
 rebuilt only when `data/dinos.json` or the model changes.
 
 ## Usage example
@@ -89,6 +95,31 @@ ambiguous):
 
 Caveat: the dataset, lexicon and test queries share an author, and the weights were tuned
 on the same set, so the attribute and hybrid numbers are optimistic.
+
+### Sketch search (`POST /search/multimodal`)
+
+A drawing adds rankings over the same 64 dinosaurs, all zero-shot (`app/search/sketch.py`):
+
+- **nome**: CLIP compares the sketch with "a drawing of a ⟨popular⟩, a dinosaur" for the 8
+  popular dinosaurs, and every dinosaur takes the rank of its group in `data/map.json`.
+- **descrição**: CLIP picks posture and the 3 strongest traits, which become a Portuguese
+  query ("quadrúpede com espinhos na cauda...") ranked by the hybrid search above.
+- **busca**: the typed text, if any, ranked by the hybrid search.
+- **popularidade**: the 8 popular dinosaurs share first place, since a drawn sauropod most
+  likely means Brachiosaurus rather than Camarasaurus.
+
+Weighted reciprocal rank fusion merges them, where rᵢ(d) is the 1-based rank of dinosaur d
+in ranking i (a dinosaur missing from a ranking gets nothing from it):
+
+```
+RRF(d) = Σᵢ wᵢ / (k + rᵢ(d)),   k = 60
+w = nome 200, descrição 1, busca 1, popularidade 0.5
+```
+
+The name weight is high on purpose: one rank down in nome costs more than all the other
+rankings can add (200 · (1/67 − 1/68) > 2 · (1/61 − 1/124) + 0.5/61), so the group CLIP picks
+always comes first and the rest only order the dinosaurs inside it. On the 25 sketches in
+`eval/gt/`, CLIP picks the right group for 72% of them (`python -m eval.run_sketch_eval eval/gt/*.json`).
 
 ## Development setup
 
