@@ -7,7 +7,8 @@ unlike any popular one are listed under "sem_grupo": their sketches are still cl
 and shown, but left out of the metrics since no group is right for them.
 
 Three rankings of the 8 groups, all zero-shot CLIP, nothing trained:
-  nome              sketch vs. "a drawing of a <popular>, a dinosaur"
+  nome              sketch vs. "a drawing of a <popular>, a dinosaur", minus most of each group's
+                    mean score, plus the traits only that group has (app.search.sketch.group_scores)
   descrição         CLIP reads posture and only the traits the 8 popular dinos have; they
                     become a Portuguese description that the app's hybrid search scores
   nome + descrição  both scores min-max normalized per sketch and summed
@@ -27,7 +28,9 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from app.search.ranker import POPULAR, build_ranker, load_config
-from app.search.sketch import NEUTRAL, POSTURES, SEARCH_TRAITS, decode, describe, frame, load_groups
+from app.search.dinos import load_dinos
+from app.search.sketch import (NEUTRAL, POSTURES, SEARCH_TRAITS, decode, describe, exclusive_traits, frame,
+                               group_scores, load_groups)
 from eval.run_eval import fmt, metrics, rank_of_first_hit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,11 +72,15 @@ def main() -> None:
     # ponytail: centering needs the whole batch; a live endpoint would center on stored sketch stats.
     margins = sketches @ trait_emb.T - (sketches @ neutral)[:, None]
     margins -= margins.mean(axis=0)
-    described = [describe(mg, posture_emb @ s, keys) for mg, s in zip(margins, sketches)]
+    postures = sketches @ posture_emb.T
+    postures -= postures.mean(axis=0)  # "four legs" edges out "two legs" on almost every sketch otherwise
+    described = [describe(mg, ps, keys) for mg, ps in zip(margins, postures)]
     ranker = build_ranker(load_config())
     search = [{r.nome: r.score_final for r in ranker.search(q, top_k=len(names))} for q, _ in described]
     desc_scores = np.array([[row[p] for p in popular] for row in search])
-    name_scores = sketches @ enc([f"a drawing of a {p}, a dinosaur" for p in popular]).T
+    raw_names = sketches @ enc([f"a drawing of a {p}, a dinosaur" for p in popular]).T
+    # Same group score as the app, centered on this batch like the traits and postures.
+    name_scores = group_scores(raw_names, raw_names.mean(axis=0), margins, exclusive_traits(load_dinos(), keys))
     scores = {
         "nome": name_scores,
         "descrição": desc_scores,

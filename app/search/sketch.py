@@ -9,8 +9,9 @@ Typed text adds a third, busca, and with a drawing the 8 popular dinos share fir
 in a fourth, popularidade: someone who drew a sauropod most likely meant Brachiosaurus, not
 Camarasaurus. Weighted reciprocal rank fusion merges them.
 
-Trait margins are centered by their mean over the ground-truth sketches, stored in
-data/sketch_trait_means.json. Regenerate it after changing the model or the prompts:
+Trait margins and posture scores are centered by their mean over the ground-truth sketches,
+stored in data/sketch_trait_means.json: every doodle beats the neutral prompt on "tiny short
+arms", and "four legs" edges out "two legs" on 24 of 25, so only above-average wins count. Regenerate it after changing the model or the prompts:
     python -m app.search.sketch eval/gt/*.json
 """
 
@@ -81,6 +82,15 @@ TOP_TRAITS = 3  # beat thresholding on p(trait vs neutral), which picked ~8 trai
 RRF_K = 60
 RRF_WEIGHTS = {"nome": 200.0, "descrição": 1.0, "busca": 1.0, "popularidade": 0.5}
 
+# Group score behind nome. Raw, the Stegosaurus prompt scores highest on any doodle and
+# Spinosaurus lowest: 9 of the 14 group errors over both ground truths went to Stegosaurus and
+# Spinosaurus was never picked. So each group's mean score is (mostly) subtracted, and CLIP's
+# reading of the traits only that group's representative has (sail -> Spinosaurus, plates ->
+# Stegosaurus...) is added. Cross-validated between the two ground truths (means from one,
+# tested on the other), group top-1 went from 0.682 to 0.750; full centering (1.0) overshoots.
+NAME_CENTERING = 0.75
+EXCLUSIVE_TRAIT_WEIGHT = 0.5
+
 
 def describe(margin: np.ndarray, posture_scores: np.ndarray, keys: list[str]) -> tuple[str, set[str]]:
     """Portuguese query and trait set for one sketch, from its centered margins over `keys`."""
@@ -143,6 +153,20 @@ def trait_keys(dinos: list[Dino]) -> list[str]:
     return [t for t in SEARCH_TRAITS if any(t in d.tracos for d in dinos if d.nome in POPULAR)]
 
 
+def exclusive_traits(dinos: list[Dino], keys: list[str]) -> list[list[int]]:
+    """Per popular group (sorted), indexes into `keys` of the traits only its representative has."""
+    by = {d.nome: d for d in dinos}
+    pop = sorted(POPULAR)
+    return [[i for i, t in enumerate(keys) if t in by[p].tracos and not any(t in by[q].tracos for q in pop if q != p)]
+            for p in pop]
+
+
+def group_scores(name: np.ndarray, name_means: np.ndarray, margin: np.ndarray, exclusive: list[list[int]]) -> np.ndarray:
+    """Score of each popular group (last axis) from raw name scores and centered trait margins."""
+    traits = np.stack([margin[..., idx].max(-1) if idx else np.zeros(margin.shape[:-1]) for idx in exclusive], -1)
+    return name - NAME_CENTERING * name_means + EXCLUSIVE_TRAIT_WEIGHT * traits
+
+
 def rrf(rankings: dict[str, dict[str, int]]) -> dict[str, float]:
     """Weighted reciprocal rank fusion of {ranking: {dino: 1-based rank}}; a dino missing
     from a ranking gets nothing from it."""
@@ -164,6 +188,9 @@ class SketchReader:
         means = json.loads(MEANS.read_text())
         assert means["modelo"] == model and list(means["tracos"]) == self.keys, f"stale {MEANS.name}: rerun python -m app.search.sketch"
         self.means = np.array(list(means["tracos"].values()))
+        self.posture_means = np.array([means["posturas"][p] for p in POSTURES])
+        self.name_means = np.array([means["nomes"][p] for p in self.popular])
+        self.exclusive = exclusive_traits(dinos, self.keys)
         self.name_emb = self.encode([f"a drawing of a {p}, a dinosaur" for p in self.popular])
         self.trait_emb = self.encode([f"{NEUTRAL} with {SEARCH_TRAITS[t][0]}" for t in self.keys])
         self.neutral = self.encode([NEUTRAL])[0]
@@ -178,9 +205,10 @@ class SketchReader:
         if not ink_box(im):
             return None
         s = self.encode([frame(im)])[0]
-        groups = [self.popular[j] for j in np.argsort(-(self.name_emb @ s))]
         margin = self.trait_emb @ s - self.neutral @ s - self.means
-        return groups, describe(margin, self.posture_emb @ s, self.keys)[0]
+        scores = group_scores(self.name_emb @ s, self.name_means, margin, self.exclusive)
+        groups = [self.popular[j] for j in np.argsort(-scores)]
+        return groups, describe(margin, self.posture_emb @ s - self.posture_means, self.keys)[0]
 
 
 @dataclass
@@ -230,8 +258,13 @@ def main() -> None:
     items = [it for f in sys.argv[1:] for it in json.loads(Path(f).read_text())["itens"]]
     s = enc([frame(decode(it["desenho"])) for it in items])
     margins = s @ enc([f"{NEUTRAL} with {SEARCH_TRAITS[t][0]}" for t in keys]).T - (s @ enc([NEUTRAL])[0])[:, None]
+    postures = s @ enc([f"a drawing of {p}" for p in POSTURES.values()]).T
+    names = s @ enc([f"a drawing of a {p}, a dinosaur" for p in sorted(POPULAR)]).T
     MEANS.write_text(json.dumps({"modelo": model, "desenhos": len(items),
-                                 "tracos": dict(zip(keys, map(float, margins.mean(axis=0))))}, ensure_ascii=False, indent=1))
+                                 "tracos": dict(zip(keys, map(float, margins.mean(axis=0)))),
+                                 "posturas": dict(zip(POSTURES, map(float, postures.mean(axis=0)))),
+                                 "nomes": dict(zip(sorted(POPULAR), map(float, names.mean(axis=0))))},
+                                ensure_ascii=False, indent=1))
     print(f"{MEANS.relative_to(ROOT)}: {len(items)} desenhos, {len(keys)} traços")
 
 
