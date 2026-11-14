@@ -1,0 +1,37 @@
+{
+  "grupos": {
+    "Tyrannosaurus": [
+      "Tyrannosaurus", "Allosaurus", "Giganotosaurus", "Carnotaurus", "Albertosaurus",
+      "Ceratosaurus", "Majungasaurus", "Dilophosaurus", "Cryolophosaurus", "Herrerasaurus",
+      "Yutyrannus", "Pycnonemosaurus", "Acrocanthosaurus"
+    ],
+    "Spinosaurus aegyptiacus": [
+      "Spinosaurus aegyptiacus", "Spinosaurus mirabilis", "Baryonyx", "Suchomimus", "Oxalaia",
+      "Irritator"
+    ],
+    "Triceratops": [
+      "Triceratops", "Styracosaurus", "Pachyrhinosaurus", "Kosmoceratops", "Protoceratops",
+      "Psittacosaurus"
+    ],
+    "Brachiosaurus": [
+      "Brachiosaurus", "Brontosaurus", "Apatosaurus", "Diplodocus", "Argentinosaurus",
+      "Dreadnoughtus", "Camarasaurus", "Mamenchisaurus", "Amargasaurus", "Nigersaurus"
+    ],
+    "Stegosaurus": [
+      "Stegosaurus", "Kentrosaurus"
+    ],
+    "Ankylosaurus": [
+      "Ankylosaurus", "Euoplocephalus", "Borealopelta"
+    ],
+    "Parasaurolophus": [
+      "Parasaurolophus", "Lambeosaurus", "Corythosaurus", "Edmontosaurus", "Maiasaura",
+      "Iguanodon", "Ouranosaurus", "Pachycephalosaurus"
+    ],
+    "Velociraptor": [
+      "Velociraptor", "Deinonychus", "Utahraptor", "Microraptor", "Archaeopteryx", "Ubirajara",
+      "Sinosauropteryx", "Compsognathus", "Oviraptor", "Gallimimus", "Deinocheirus",
+      "Coelophysis", "Staurikosaurus", "Vespersaurus"
+    ]
+  },
+  "sem_grupo": ["Concavenator", "Therizinosaurus"]
+}

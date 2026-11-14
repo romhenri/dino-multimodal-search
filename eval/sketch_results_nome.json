@@ -1,0 +1,360 @@
+{
+  "metodo": "nome",
+  "descricao": "CLIP zero-shot: o desenho é comparado com \"a drawing of a {popular}, a dinosaur\" para os 8 populares; vence o mais parecido.",
+  "modelo": "clip-ViT-L-14",
+  "ground_truth": "eval/gt/gt-desenhos-20261114-023254.json",
+  "grupos": "data/map.json",
+  "gerado_em": "2026-11-13",
+  "desenhos": 25,
+  "n_grupos": 8,
+  "acaso_top1": 0.125,
+  "metricas": {
+    "top1": 0.72,
+    "top3": 0.88,
+    "mrr": 0.812
+  },
+  "por_grupo": {
+    "Tyrannosaurus": {
+      "desenhos": 6,
+      "acertos_top1": 5,
+      "acertos_top3": 6
+    },
+    "Spinosaurus aegyptiacus": {
+      "desenhos": 2,
+      "acertos_top1": 0,
+      "acertos_top3": 0
+    },
+    "Triceratops": {
+      "desenhos": 4,
+      "acertos_top1": 4,
+      "acertos_top3": 4
+    },
+    "Brachiosaurus": {
+      "desenhos": 4,
+      "acertos_top1": 3,
+      "acertos_top3": 4
+    },
+    "Stegosaurus": {
+      "desenhos": 1,
+      "acertos_top1": 1,
+      "acertos_top3": 1
+    },
+    "Ankylosaurus": {
+      "desenhos": 2,
+      "acertos_top1": 1,
+      "acertos_top3": 1
+    },
+    "Parasaurolophus": {
+      "desenhos": 2,
+      "acertos_top1": 1,
+      "acertos_top3": 2
+    },
+    "Velociraptor": {
+      "desenhos": 4,
+      "acertos_top1": 3,
+      "acertos_top3": 4
+    }
+  },
+  "desenhos_detalhe": [
+    {
+      "nome": "Irritator",
+      "grupo_esperado": "Spinosaurus aegyptiacus",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 8,
+      "acertou": false,
+      "top3": [
+        "Velociraptor",
+        "Tyrannosaurus",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Stegosaurus",
+      "grupo_esperado": "Stegosaurus",
+      "grupo_previsto": "Stegosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Stegosaurus",
+        "Ankylosaurus",
+        "Triceratops"
+      ]
+    },
+    {
+      "nome": "Borealopelta",
+      "grupo_esperado": "Ankylosaurus",
+      "grupo_previsto": "Stegosaurus",
+      "posicao_do_certo": 5,
+      "acertou": false,
+      "top3": [
+        "Stegosaurus",
+        "Tyrannosaurus",
+        "Velociraptor"
+      ]
+    },
+    {
+      "nome": "Protoceratops",
+      "grupo_esperado": "Triceratops",
+      "grupo_previsto": "Triceratops",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Triceratops",
+        "Tyrannosaurus",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Giganotosaurus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Tyrannosaurus",
+        "Velociraptor",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Lambeosaurus",
+      "grupo_esperado": "Parasaurolophus",
+      "grupo_previsto": "Stegosaurus",
+      "posicao_do_certo": 3,
+      "acertou": false,
+      "top3": [
+        "Stegosaurus",
+        "Triceratops",
+        "Parasaurolophus"
+      ]
+    },
+    {
+      "nome": "Deinonychus",
+      "grupo_esperado": "Velociraptor",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Velociraptor",
+        "Tyrannosaurus",
+        "Parasaurolophus"
+      ]
+    },
+    {
+      "nome": "Brachiosaurus",
+      "grupo_esperado": "Brachiosaurus",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 2,
+      "acertou": false,
+      "top3": [
+        "Velociraptor",
+        "Brachiosaurus",
+        "Tyrannosaurus"
+      ]
+    },
+    {
+      "nome": "Parasaurolophus",
+      "grupo_esperado": "Parasaurolophus",
+      "grupo_previsto": "Parasaurolophus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Parasaurolophus",
+        "Triceratops",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Carnotaurus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Tyrannosaurus",
+        "Stegosaurus",
+        "Velociraptor"
+      ]
+    },
+    {
+      "nome": "Styracosaurus",
+      "grupo_esperado": "Triceratops",
+      "grupo_previsto": "Triceratops",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Triceratops",
+        "Stegosaurus",
+        "Tyrannosaurus"
+      ]
+    },
+    {
+      "nome": "Pachyrhinosaurus",
+      "grupo_esperado": "Triceratops",
+      "grupo_previsto": "Triceratops",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Triceratops",
+        "Stegosaurus",
+        "Ankylosaurus"
+      ]
+    },
+    {
+      "nome": "Dreadnoughtus",
+      "grupo_esperado": "Brachiosaurus",
+      "grupo_previsto": "Brachiosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Brachiosaurus",
+        "Parasaurolophus",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Spinosaurus mirabilis",
+      "grupo_esperado": "Spinosaurus aegyptiacus",
+      "grupo_previsto": "Stegosaurus",
+      "posicao_do_certo": 7,
+      "acertou": false,
+      "top3": [
+        "Stegosaurus",
+        "Triceratops",
+        "Tyrannosaurus"
+      ]
+    },
+    {
+      "nome": "Triceratops",
+      "grupo_esperado": "Triceratops",
+      "grupo_previsto": "Triceratops",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Triceratops",
+        "Stegosaurus",
+        "Parasaurolophus"
+      ]
+    },
+    {
+      "nome": "Brontosaurus",
+      "grupo_esperado": "Brachiosaurus",
+      "grupo_previsto": "Brachiosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Brachiosaurus",
+        "Velociraptor",
+        "Tyrannosaurus"
+      ]
+    },
+    {
+      "nome": "Argentinosaurus",
+      "grupo_esperado": "Brachiosaurus",
+      "grupo_previsto": "Brachiosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Brachiosaurus",
+        "Tyrannosaurus",
+        "Velociraptor"
+      ]
+    },
+    {
+      "nome": "Tyrannosaurus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 2,
+      "acertou": false,
+      "top3": [
+        "Velociraptor",
+        "Tyrannosaurus",
+        "Brachiosaurus"
+      ]
+    },
+    {
+      "nome": "Ankylosaurus",
+      "grupo_esperado": "Ankylosaurus",
+      "grupo_previsto": "Ankylosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Ankylosaurus",
+        "Stegosaurus",
+        "Triceratops"
+      ]
+    },
+    {
+      "nome": "Majungasaurus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Tyrannosaurus",
+        "Velociraptor",
+        "Brachiosaurus"
+      ]
+    },
+    {
+      "nome": "Utahraptor",
+      "grupo_esperado": "Velociraptor",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 2,
+      "acertou": false,
+      "top3": [
+        "Tyrannosaurus",
+        "Velociraptor",
+        "Brachiosaurus"
+      ]
+    },
+    {
+      "nome": "Yutyrannus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Tyrannosaurus",
+        "Velociraptor",
+        "Brachiosaurus"
+      ]
+    },
+    {
+      "nome": "Velociraptor",
+      "grupo_esperado": "Velociraptor",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Velociraptor",
+        "Brachiosaurus",
+        "Tyrannosaurus"
+      ]
+    },
+    {
+      "nome": "Acrocanthosaurus",
+      "grupo_esperado": "Tyrannosaurus",
+      "grupo_previsto": "Tyrannosaurus",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Tyrannosaurus",
+        "Velociraptor",
+        "Stegosaurus"
+      ]
+    },
+    {
+      "nome": "Coelophysis",
+      "grupo_esperado": "Velociraptor",
+      "grupo_previsto": "Velociraptor",
+      "posicao_do_certo": 1,
+      "acertou": true,
+      "top3": [
+        "Velociraptor",
+        "Tyrannosaurus",
+        "Brachiosaurus"
+      ]
+    }
+  ]
+}
